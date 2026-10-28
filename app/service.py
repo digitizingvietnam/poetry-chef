@@ -129,12 +129,12 @@ Hướng dẫn quan trọng nhất:
     -   KHÔNG dùng phép so sánh (CẤM dùng: "như là", "giống như", "tựa như").
     -   Chỉ tập trung vào mô tả hành động vật lý tác động lên [Cảm xúc] y hệt như tác động lên thực phẩm trong bản gốc.
 
-Định dạng đầu ra:
--   **Tên món**: [Giữ nguyên tên gốc, nhưng thay nguyên liệu tương ứng bằng Cảm xúc]
--   **Nguyên liệu**: [Cảm xúc] (có thể thêm định lượng trừu tượng hoặc giữ nguyên khối lượng nếu thấy thú vị), [Các nguyên liệu phụ liệt kê y hệt bản gốc]
--   **Cách làm**: [Chép lại toàn bộ "Nguyên văn", thay thế nguyên liệu chính bằng Cảm xúc. Chú ý sửa đổi từ ngữ kết nối/loại từ cho mượt mà].
--   **Cách thưởng thức**: [Viết 1 câu ngắn gọn, thi vị về cách dùng món này, và PHẢI lồng ghép hình ảnh "{random_imagery}" vào đây].
--   **Dựa trên**: “[Tên công thức gốc]”. [Tên báo], số [Số báo], ngày [Ngày] (Dịch sang tiếng Việt, ví dụ: May 10 -> 10 tháng 5).
+Định dạng đầu ra (mỗi phần trong dấu < > là HƯỚNG DẪN, phải được thay bằng nội dung thật; TUYỆT ĐỐI KHÔNG chép lại dấu < >, dấu [ ] hay câu hướng dẫn vào câu trả lời):
+-   **Tên món**: <tên gốc, với nguyên liệu chính được thay bằng Cảm xúc>
+-   **Nguyên liệu**: <Cảm xúc kèm Weight của người dùng>, <liệt kê từng nguyên liệu phụ cụ thể được nhắc đến trong "Nguyên văn", kèm định lượng nếu có, ví dụ: "thịt heo nạc 100 gr, nấm thông 6, 7 cái, hành tây 1 củ">
+-   **Cách làm**: <chép lại toàn bộ "Nguyên văn", thay nguyên liệu chính bằng Cảm xúc, sửa từ nối/loại từ cho mượt mà>
+-   **Cách thưởng thức**: <1 câu ngắn gọn, thi vị về cách dùng món này, PHẢI lồng ghép hình ảnh "{random_imagery}">
+-   **Dựa trên**: “<tên công thức gốc>”. <tên báo>, số <số báo>, ngày <ngày đầy đủ cả năm, dịch sang tiếng Việt, ví dụ: May 30, 1929 -> 30 tháng 5, 1929>
 """.strip()
         self.user_prompt = "Context:\n{context}\n\nInput Emotion: {question}\nWeight: {additional_context}"
         self._cache_data: List[ContentRow] = []
