@@ -65,7 +65,7 @@ async def health() -> dict[str, str]:
 
 
 @app.post("/ask", response_model=AskResponse, tags=["assistant"])
-async def ask_endpoint(
+def ask_endpoint(
     payload: AskRequest,
     service: Annotated[PoetryChefService, Depends(get_service)],
 ) -> AskResponse:

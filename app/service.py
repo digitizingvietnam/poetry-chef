@@ -22,8 +22,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_openai import ChatOpenAI
+from openai import OpenAI
 
 from .schemas import SourceChunk
 from .settings import Settings
@@ -112,17 +111,9 @@ class PoetryChefService:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
 
-        self.llm = ChatOpenAI(
-            model=settings.chat_model,
-            api_key=settings.openai_api_key,
-            temperature=0.8,
-        )
+        self.client = OpenAI(api_key=settings.openai_api_key)
 
-        self.prompt = ChatPromptTemplate.from_messages(
-            [
-                (
-                    "system",
-                    """
+        self.system_prompt = """
 Bạn là một "Đầu bếp Thơ ca" (Poetry Chef). Mục tiêu duy nhất của bạn là chuyển hóa gánh nặng của người dùng bằng cách đặt chúng vào một công thức nấu ăn cổ xưa của Việt Nam.
 
 Hướng dẫn quan trọng nhất:
@@ -144,14 +135,8 @@ Hướng dẫn quan trọng nhất:
 -   **Cách làm**: [Chép lại toàn bộ "Nguyên văn", thay thế nguyên liệu chính bằng Cảm xúc. Chú ý sửa đổi từ ngữ kết nối/loại từ cho mượt mà].
 -   **Cách thưởng thức**: [Viết 1 câu ngắn gọn, thi vị về cách dùng món này, và PHẢI lồng ghép hình ảnh "{random_imagery}" vào đây].
 -   **Dựa trên**: “[Tên công thức gốc]”. [Tên báo], số [Số báo], ngày [Ngày] (Dịch sang tiếng Việt, ví dụ: May 10 -> 10 tháng 5).
-""".strip(),
-                ),
-                (
-                    "user",
-                    "Context:\n{context}\n\nInput Emotion: {question}\nWeight: {additional_context}",
-                ),
-            ]
-        )
+""".strip()
+        self.user_prompt = "Context:\n{context}\n\nInput Emotion: {question}\nWeight: {additional_context}"
         self._cache_data: List[ContentRow] = []
 
     def _load_data(self) -> List[ContentRow]:
@@ -211,25 +196,27 @@ Hướng dẫn quan trọng nhất:
         # Pick a random poetic imagery
         random_imagery = random.choice(POETIC_IMAGERY)
 
-        # Update temperature if requested
-        previous_temperature = self.llm.temperature
-        if temperature is not None:
-            self.llm.temperature = temperature
-
-        try:
-            response = self.llm.invoke(
-                self.prompt.format_messages(
-                    context=context_text,
-                    question=question,
-                    additional_context=additional_context or "không xác định",
-                    random_imagery=random_imagery,
-                )
-            )
-        finally:
-            self.llm.temperature = previous_temperature
+        response = self.client.chat.completions.create(
+            model=self.settings.chat_model,
+            temperature=0.8 if temperature is None else temperature,
+            messages=[
+                {
+                    "role": "system",
+                    "content": self.system_prompt.format(random_imagery=random_imagery),
+                },
+                {
+                    "role": "user",
+                    "content": self.user_prompt.format(
+                        context=context_text,
+                        question=question,
+                        additional_context=additional_context or "không xác định",
+                    ),
+                },
+            ],
+        )
 
         return {
-            "answer": response.content.strip(),
+            "answer": (response.choices[0].message.content or "").strip(),
             "citations": [selected_row.citation_label],
             "sources": [selected_row.to_source_chunk()],
         }

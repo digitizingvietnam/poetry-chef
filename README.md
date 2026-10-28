@@ -27,7 +27,7 @@ The project is part of Digitizing Việt Nam. It's meant to bring archival Quố
 ## Tech Stack
 
 - **Backend**: Python 3.11, FastAPI, Uvicorn, Pydantic Settings
-- **LLM**: OpenAI GPT (`gpt-4o-mini` by default) via LangChain (`langchain-openai`)
+- **LLM**: OpenAI GPT (`gpt-4o-mini` by default) via the official `openai` Python SDK
 - **Data**: a curated CSV of historical recipes (`data/data.csv`)
 - **Frontend**: plain HTML, CSS and JavaScript (no build step), served by FastAPI
 - **Deployment**: Docker (Hugging Face Spaces, port 7860)
@@ -93,7 +93,7 @@ The full API contract is in [API.md](API.md).
 git clone <repo-url> Project_VSC3
 cd Project_VSC3
 
-python -m venv .venv
+python3 -m venv .venv
 source .venv/bin/activate        # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 

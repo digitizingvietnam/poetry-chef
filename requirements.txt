@@ -1,7 +1,5 @@
 fastapi
-uvicorn[standard]
-python-dotenv
+uvicorn
 pydantic
 pydantic-settings
-langchain-core
-langchain-openai
+openai
