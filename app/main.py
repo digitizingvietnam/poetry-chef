@@ -1,21 +1,28 @@
+"""
+main.py
+
+FastAPI entry point for the Poetry Chef backend.
+
+Endpoints (documented in API.md):
+- GET  /        liveness check
+- GET  /health  liveness check
+- POST /ask     re-cook an Emotion into a historical Vietnamese recipe
+
+Run locally with `uvicorn app.main:app --reload --port 8000`.
+"""
+
 from __future__ import annotations
 
-from pathlib import Path
+import logging
 from time import perf_counter
-from typing import Annotated, Optional
+from typing import Annotated
 
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 
 from .deps import get_app_settings, get_service
-from .service import PoetryChefService
 from .schemas import AskRequest, AskResponse
-from .settings import Settings
-
-import logging
-
-
+from .service import PoetryChefService
 
 LOGGER = logging.getLogger(__name__)
 if not LOGGER.handlers:
@@ -48,33 +55,15 @@ app.add_middleware(
 )
 
 
-def _mount_static_docs(settings: Settings) -> None:
-    if not settings.serve_docs:
-        return
-    doc_dir: Path = settings.resolved_data_dir
-    if not doc_dir.exists():
-        return
-    mount_path = settings.docs_mount_path.rstrip("/") or "/docs"
-    already_mounted = any(
-        getattr(route, "path", None) == mount_path for route in app.routes
-    )
-    if already_mounted:
-        return
-    app.mount(
-        mount_path, StaticFiles(directory=str(doc_dir), check_dir=False), name="docs"
-    )
-
-
-_mount_static_docs(settings)
-
-
 @app.get("/health", tags=["system"])
 async def health() -> dict[str, str]:
+    """Liveness check."""
     return {"status": "ok"}
 
 
 @app.get("/", tags=["system"])
 async def root() -> dict[str, str]:
+    """Liveness check at the root path."""
     return {"status": "ok"}
 
 
@@ -83,6 +72,7 @@ async def ask_endpoint(
     payload: AskRequest,
     service: Annotated[PoetryChefService, Depends(get_service)],
 ) -> AskResponse:
+    """Re-cook the user's Emotion using a random Original Recipe."""
     start_ts = perf_counter()
     result = service.ask(
         question=payload.question,
@@ -96,11 +86,7 @@ async def ask_endpoint(
         duration,
         payload.question
     )
-    return AskResponse.from_chain_result(
-        answer=result["answer"],
-        citations=result["citations"],
-        sources=result["sources"],
-    )
+    return AskResponse(**result)
 
 
 if __name__ == "__main__":

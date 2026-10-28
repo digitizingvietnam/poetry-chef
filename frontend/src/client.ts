@@ -1,6 +1,6 @@
 import type { AskRequest, AskResponse } from "./types";
 
-export const API_BASE =
+const API_BASE =
   (import.meta.env.VITE_API_BASE as string | undefined) ??
   "http://localhost:8000";
 const NORMALISED_BASE = API_BASE.endsWith("/") ? API_BASE : `${API_BASE}/`;
@@ -23,16 +23,3 @@ export async function askQuestion(payload: AskRequest): Promise<AskResponse> {
   return response.json() as Promise<AskResponse>;
 }
 
-export function resolveViewerUrl(
-  relativeUrl: string | null | undefined
-): string | null {
-  if (!relativeUrl) {
-    return null;
-  }
-  try {
-    return new URL(relativeUrl, NORMALISED_BASE).toString();
-  } catch (error) {
-    console.warn("Failed to resolve viewer URL", error);
-    return relativeUrl;
-  }
-}

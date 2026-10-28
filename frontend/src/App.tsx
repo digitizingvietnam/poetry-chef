@@ -22,9 +22,6 @@ export default function App() {
       const payload: AskRequest = {
         question: emotion,
         additional_context: `${weight} kg`,
-        top_k: 1,
-        pool_size: 5,
-        rerank: true,
       };
 
       const res = await askQuestion(payload);

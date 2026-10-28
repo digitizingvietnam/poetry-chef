@@ -1,3 +1,18 @@
+"""
+service.py
+
+Poetry Chef core logic.
+
+For every request the service:
+1. Loads the Original Recipes from `data/data.csv` (cached after first read).
+2. Picks one Original Recipe and one Poetic Imagery at random.
+3. Asks an OpenAI chat model to re-write the recipe's Nguyên văn with the
+   main ingredient replaced by the user's Emotion.
+
+No vector database is involved: selection is deliberately random rather than
+semantic, so the same Emotion can yield a different recipe each time.
+"""
+
 from __future__ import annotations
 
 import csv
@@ -16,7 +31,7 @@ from .settings import Settings
 LOGGER = logging.getLogger(__name__)
 
 class ContentRow:
-    """Represents a single row from the data.csv."""
+    """One Original Recipe, parsed from a row of data.csv."""
     def __init__(self, row: Dict[str, str], source_path: Path):
         self.action = row.get("Động từ (Action)", "").strip()
         self.original_recipe = row.get("Công thức gốc (Original recipes)", "").strip()
@@ -38,6 +53,7 @@ class ContentRow:
         )
 
     def to_text(self) -> str:
+        """Render the recipe as prompt context for the LLM."""
         return (
             f"Hành động: {self.action}\n"
             f"Công thức gốc: {self.original_recipe}\n"
@@ -48,6 +64,7 @@ class ContentRow:
         )
 
     def to_source_chunk(self) -> SourceChunk:
+        """Convert to the API's source model, with dates in Vietnamese format."""
         text = self.full_text or self.to_text()
 
         # Format date to Vietnamese if present
@@ -68,16 +85,14 @@ class ContentRow:
 
         return SourceChunk(
             label=label,
-            page_number=None,
             chapter=self.issue,
             book_title=self.newspaper,
             file_name=self.source_path.name,
             source_path=str(self.source_path),
             text=text,
-            viewer_url=None,
         )
 
-# List of poetic imagery to randomly select from
+# Poetic Imagery: one is chosen at random and woven into "Cách thưởng thức"
 POETIC_IMAGERY = [
     "gió biển",
     "sương sớm",
@@ -96,11 +111,11 @@ class PoetryChefService:
     """
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
-        self.settings.ensure_env()
 
         self.llm = ChatOpenAI(
             model=settings.chat_model,
-            temperature=0.8
+            api_key=settings.openai_api_key,
+            temperature=0.8,
         )
 
         self.prompt = ChatPromptTemplate.from_messages(
@@ -140,10 +155,11 @@ Hướng dẫn quan trọng nhất:
         self._cache_data: List[ContentRow] = []
 
     def _load_data(self) -> List[ContentRow]:
+        """Read and cache all Original Recipes from data.csv."""
         if self._cache_data:
             return self._cache_data
 
-        csv_path = self.settings.resolved_data_dir / "data.csv"
+        csv_path = self.settings.data_dir / "data.csv"
         if not csv_path.exists():
             LOGGER.error(f"Data file not found at {csv_path}")
             return []
@@ -167,18 +183,18 @@ Hướng dẫn quan trọng nhất:
         *,
         question: str,
         additional_context: Optional[str] = None,
-        top_k: Optional[int] = None,
-        pool_size: Optional[int] = None,
         temperature: Optional[float] = None,
-        rerank: bool = True,
     ) -> Dict[str, object]:
         """
-        Picks a random context and generates a response.
+        Pick a random Original Recipe and re-cook it with the user's Emotion.
+
         Args:
-            question: The user's emotion/gánh nặng.
-            additional_context: The weight of the emotion.
-            temperature: LLM temperature.
-            top_k, pool_size, rerank: Ignored in this simplified version.
+            question: The user's Emotion (gánh nặng).
+            additional_context: The Weight of the Emotion, e.g. "5 kg".
+            temperature: Optional LLM temperature override.
+
+        Returns:
+            A dict with `answer`, `citations` and `sources`, matching AskResponse.
         """
         data = self._load_data()
         if not data:
@@ -217,7 +233,3 @@ Hướng dẫn quan trọng nhất:
             "citations": [selected_row.citation_label],
             "sources": [selected_row.to_source_chunk()],
         }
-
-    def ensure_vectorstore(self, force_rebuild: bool = False) -> None:
-        """Compatibility method for startup logic."""
-        self._load_data()

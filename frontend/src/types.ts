@@ -1,10 +1,7 @@
 export interface AskRequest {
   question: string;
   additional_context?: string;
-  top_k?: number;
-  pool_size?: number;
   temperature?: number;
-  rerank?: boolean;
 }
 
 export interface SourceChunk {
@@ -13,9 +10,7 @@ export interface SourceChunk {
   book_title?: string;
   file_name?: string;
   source_path?: string;
-  page_number?: number;
   text: string;
-  viewer_url?: string | null;
 }
 
 export interface AskResponse {
