@@ -8,9 +8,104 @@
       content="Chuyển hóa cảm xúc thành món ăn tinh thần"
     />
     <title>Hầm cho rục, kho cho thắm</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <script src="/app.js" defer></script>
   </head>
   <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
+    <!-- Main Container -->
+    <div class="container">
+      <!-- Title Section -->
+      <div class="title-section">
+        <h1 class="main-title">Hầm cho rục, kho cho thắm</h1>
+        <p class="subtitle">
+          Chế biến những khối vô hình trong bạn qua các công thức nấu ăn trên
+          Nữ Giới Chung (1918) và Phụ nữ Tân Văn (1929).
+        </p>
+      </div>
+
+      <!-- Form Container -->
+      <div class="form-container">
+        <form id="poem-form" aria-label="Form nấu món ăn">
+          <!-- Emotion Input -->
+          <div class="form-group">
+            <label for="emotion">Nguyên liệu cần chế biến (vô hình hay hữu hình)</label>
+            <input
+              type="text"
+              id="emotion"
+              name="emotion"
+              placeholder="cô đơn, trống rỗng, nhung nhớ, thèm..."
+              aria-label="Nhập cảm xúc"
+              required
+            />
+          </div>
+
+          <!-- Weight Input -->
+          <div class="form-group">
+            <label for="weight">
+              Sức nặng của nguyên liệu:
+              <span class="weight-value" id="weight-value">5 kg</span>
+            </label>
+            <div class="slider-container">
+              <input
+                type="range"
+                id="weight"
+                name="weight"
+                min="0"
+                max="10"
+                step="1"
+                value="5"
+                class="aesthetic-slider"
+              />
+              <div class="slider-labels">
+                <span class="slider-label">0</span>
+                <span class="slider-label">1</span>
+                <span class="slider-label">2</span>
+                <span class="slider-label">3</span>
+                <span class="slider-label">4</span>
+                <span class="slider-label">5</span>
+                <span class="slider-label">6</span>
+                <span class="slider-label">7</span>
+                <span class="slider-label">8</span>
+                <span class="slider-label">9</span>
+                <span class="slider-label">10</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Submit Button -->
+          <button type="submit" class="submit-btn" id="submit-btn">
+            <span class="btn-text">Tạo công thức</span>
+          </button>
+        </form>
+
+        <!-- Error Message -->
+        <div id="error-message" class="error-message" hidden></div>
+      </div>
+
+      <!-- Output Section -->
+      <div id="output-section" class="output-section" hidden>
+        <div class="poem-container">
+          <h2 class="output-title">Món ăn của bạn</h2>
+          <div id="output" class="poem-output"></div>
+          <div class="poem-separator"></div>
+
+          <!-- Explanation Section - Adapted from citations/sources -->
+          <div id="explanation-section" class="explanation-section">
+            <h3 class="explanation-title">Công thức gốc</h3>
+            <div id="explanation-content"></div>
+          </div>
+
+          <!-- Print Button -->
+          <button type="button" class="print-btn" id="print-btn">
+            In công thức
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer moved outside container -->
+    <footer class="footer">
+      <div class="footer-copyright">© 2025 Digitizing Việt Nam</div>
+    </footer>
   </body>
 </html>

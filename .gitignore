@@ -28,13 +28,6 @@ logs/
 .DS_Store
 Thumbs.db
 
-# Frontend dependencies and build output
-frontend/node_modules/
-frontend/dist/
-frontend/.vite/
-frontend/.env
-frontend/.env.local
-
 # Editor settings
 .vscode/
 .idea/

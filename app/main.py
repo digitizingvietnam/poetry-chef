@@ -4,9 +4,10 @@ main.py
 FastAPI entry point for the Poetry Chef backend.
 
 Endpoints (documented in API.md):
-- GET  /        liveness check
 - GET  /health  liveness check
 - POST /ask     re-cook an Emotion into a historical Vietnamese recipe
+
+Everything else is served from `frontend/` (the static HTML/CSS/JS UI).
 
 Run locally with `uvicorn app.main:app --reload --port 8000`.
 """
@@ -14,11 +15,13 @@ Run locally with `uvicorn app.main:app --reload --port 8000`.
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 from time import perf_counter
 from typing import Annotated
 
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from .deps import get_app_settings, get_service
 from .schemas import AskRequest, AskResponse
@@ -61,12 +64,6 @@ async def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
-@app.get("/", tags=["system"])
-async def root() -> dict[str, str]:
-    """Liveness check at the root path."""
-    return {"status": "ok"}
-
-
 @app.post("/ask", response_model=AskResponse, tags=["assistant"])
 async def ask_endpoint(
     payload: AskRequest,
@@ -87,6 +84,11 @@ async def ask_endpoint(
         payload.question
     )
     return AskResponse(**result)
+
+
+# Mounted last so the API routes above take priority over the static files.
+FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend"
+app.mount("/", StaticFiles(directory=FRONTEND_DIR, html=True), name="frontend")
 
 
 if __name__ == "__main__":

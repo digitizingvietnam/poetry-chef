@@ -28,13 +28,7 @@ curl http://localhost:8000/health
 
 ## `GET /`
 
-Same as `/health`. Used by hosting platforms that probe the root path.
-
-**Response `200`**
-
-```json
-{ "status": "ok" }
-```
+Serves the web UI (`frontend/index.html`, `text/html`). Other static files in `frontend/` are served at their own paths (e.g. `/app.js`, `/styles.css`). Hosting platforms that probe the root path get a `200`.
 
 ---
 

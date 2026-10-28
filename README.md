@@ -29,7 +29,7 @@ The project is part of Digitizing Việt Nam. It's meant to bring archival Quố
 - **Backend**: Python 3.11, FastAPI, Uvicorn, Pydantic Settings
 - **LLM**: OpenAI GPT (`gpt-4o-mini` by default) via LangChain (`langchain-openai`)
 - **Data**: a curated CSV of historical recipes (`data/data.csv`)
-- **Frontend**: React 18, TypeScript, Vite
+- **Frontend**: plain HTML, CSS and JavaScript (no build step), served by FastAPI
 - **Deployment**: Docker (Hugging Face Spaces, port 7860)
 
 ## Technical Description
@@ -37,7 +37,7 @@ The project is part of Digitizing Việt Nam. It's meant to bring archival Quố
 ### Architecture
 
 ```text
-Browser (React/Vite)
+Browser (frontend/, served by FastAPI)
    │  POST /ask { question: Emotion, additional_context: Weight }
    ▼
 FastAPI (app/main.py)
@@ -56,14 +56,15 @@ PoetryChefService (app/service.py)
 
 | Path                  | Role                                                                     |
 | --------------------- | ------------------------------------------------------------------------ |
-| `app/main.py`         | FastAPI app, CORS, and the `/`, `/health`, `/ask` endpoints              |
+| `app/main.py`         | FastAPI app, CORS, the `/health` and `/ask` endpoints, and the static UI |
 | `app/service.py`      | Loads recipes, random selection, the prompt, and the OpenAI call         |
 | `app/schemas.py`      | Request/response models                                                  |
 | `app/settings.py`     | Reads configuration from environment variables / `.env`                 |
 | `app/deps.py`         | FastAPI dependency wiring (one shared service per process)               |
 | `data/data.csv`       | Original Recipes: action, dish name, date, issue, newspaper, Nguyên văn  |
-| `frontend/src/App.tsx`| Emotion + Weight form and the result card                                |
-| `frontend/src/client.ts` | Fetch client for `POST /ask`                                          |
+| `frontend/index.html` | Emotion + Weight form and the result card                                |
+| `frontend/app.js`     | Calls `POST /ask` and renders the result                                 |
+| `frontend/styles.css` | Styles, including the printable recipe card                              |
 
 ### How it works
 
@@ -84,10 +85,9 @@ The full API contract is in [API.md](API.md).
 ### Prerequisites
 
 - Python 3.10+
-- Node.js 18+ and npm
 - An **OpenAI API key**, used for chat completions. Create one at <https://platform.openai.com/api-keys>.
 
-### 1. Backend
+### Run locally
 
 ```bash
 git clone <repo-url> Project_VSC3
@@ -101,16 +101,7 @@ cp .env.example .env             # then edit .env and set OPENAI_API_KEY
 uvicorn app.main:app --reload --port 8000
 ```
 
-### 2. Frontend
-
-```bash
-cd frontend
-cp .env.example .env             # points the UI at http://localhost:8000
-npm install
-npm run dev
-```
-
-Open <http://localhost:5173>.
+Open <http://localhost:8000>. FastAPI serves the UI from `frontend/`; after editing a frontend file, just refresh the page.
 
 ### Environment variables
 
@@ -122,12 +113,6 @@ Backend (`.env`, see [.env.example](.env.example)):
 | `CHAT_MODEL`      | No       | `gpt-4o-mini`  | OpenAI chat model                                   |
 | `DATA_DIR`        | No       | `data`         | Folder containing `data.csv`                        |
 | `ALLOWED_ORIGINS` | No       | `["*"]`        | JSON list of origins allowed by CORS                |
-
-Frontend (`frontend/.env`, see [frontend/.env.example](frontend/.env.example)):
-
-| Variable        | Required | Default                 | Description              |
-| --------------- | -------- | ----------------------- | ------------------------ |
-| `VITE_API_BASE` | No       | `http://localhost:8000` | Base URL of the backend  |
 
 ### Docker
 
