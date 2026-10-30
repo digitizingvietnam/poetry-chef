@@ -1,5 +1,5 @@
 ---
-title: Fulbright Nôm Library RAG
+title: Poetry Chef
 emoji: 📚
 colorFrom: blue
 colorTo: indigo
@@ -7,152 +7,140 @@ sdk: docker
 pinned: false
 ---
 
-# Poetry Chef assistant
+# Poetry Chef — Hầm cho rục, kho cho thắm
 
-A full-stack assistant that lets readers explore historical Vietnamese culinary actions. The backend uses a FastAPI pipeline to pick random historical cooking context and uses OpenAI chat completions to "re-cook" user emotions into poetic recipes.
+## Overview
 
----
+Poetry Chef "cooks" a user's emotion using real recipes from early 20th-century Vietnamese women's newspapers, *Nữ Giới Chung* (1918) and *Phụ Nữ Tân Văn* (1929). The user types an emotion (e.g. *cô đơn*) and how heavy it feels. The app picks a historical recipe and rewrites it almost word-for-word, with the emotion as its main ingredient, then cites the original article.
 
-## Highlights
+The project is part of Digitizing Việt Nam. It's meant to bring archival Quốc ngữ cooking texts to new readers through a playful, poetic interaction. Domain terms used below are defined in [GLOSSARY.md](GLOSSARY.md).
 
-- **Poetic Recipe Generation** – Transforms abstract emotions into culinary metaphors based on historical Vietnamese texts.
-- **Random Context Selection** – Picks a unique historical recipe from a curated CSV database for every interaction.
-- **Luxurious frontend** – Custom Vite/React UI with aurora-inspired theming, highlight animations, and smooth scrolling.
-- **Simplified Stack** – Minimalist backend with direct CSV parsing and OpenAI integration, no heavy vector databases required.
+## Feature Highlights
 
----
+- **Archival recipes, kept verbatim**: the "Cách làm" section copies the original newspaper text (Nguyên văn), keeping its 1918/1929 spelling and style.
+- **Emotion as ingredient**: the main ingredient is replaced by the user's Emotion. Classifiers like *con*, *cái* are adjusted so the sentence still reads naturally.
+- **Weight**: a slider lets the user say how heavy the Emotion is (e.g. *5 kg*). This becomes the quantity in the recipe.
+- **Spontaneity**: each request draws a random Original Recipe and a random Poetic Imagery, so the same Emotion yields a new dish every time.
+- **Citations**: every result shows the source newspaper, issue and date, with dates rendered in Vietnamese.
+- **Printable**: the frontend styles the result as a printable recipe card.
 
-## Architecture Overview
+## Tech Stack
+
+- **Backend**: Python 3.11, FastAPI, Uvicorn, Pydantic Settings
+- **LLM**: OpenAI GPT (`gpt-4o-mini` by default) via the official `openai` Python SDK
+- **Data**: a curated CSV of historical recipes (`data/data.csv`)
+- **Frontend**: plain HTML, CSS and JavaScript (no build step), served by FastAPI
+- **Deployment**: Docker (Hugging Face Spaces, port 7860)
+
+## Technical Description
+
+### Architecture
 
 ```text
-├── app/                # FastAPI service and Poetry Chef pipeline
-│   ├── main.py         # API entry-point (`/ask` endpoint)
-│   ├── rag/            # Prompting and random selection logic
-│   ├── deps.py         # Dependency wiring
-│   └── settings.py     # Pydantic settings (reads `config/.env`)
-├── data/               # Curated historical recipe database (CSV)
-├── frontend/           # Vite + React spa (chat experience)
-│   ├── src/App.tsx     # Main UI logic
-│   ├── src/client.ts   # API fetch client
-│   └── src/styles.css  # Theme and animations
-├── config/
-│   ├── .env.example    # Sample configuration
-│   └── .env            # Your actual secrets (ignored from VCS)
-├── requirements.txt    # Backend dependencies
-└── README.md           # You are here
+Browser (frontend/, served by FastAPI)
+   │  POST /ask { question: Emotion, additional_context: Weight }
+   ▼
+FastAPI (app/main.py)
+   │
+   ▼
+PoetryChefService (app/service.py)
+   ├─ load data/data.csv (cached in memory)
+   ├─ pick a random Original Recipe + random Poetic Imagery
+   └─ prompt OpenAI GPT ──► Re-cooked Recipe
+   │
+   ▼
+{ answer, citations, sources } ──► rendered as a recipe card
 ```
 
----
+### Components
 
-## Prerequisites
+| Path                  | Role                                                                     |
+| --------------------- | ------------------------------------------------------------------------ |
+| `app/main.py`         | FastAPI app, CORS, the `/health` and `/ask` endpoints, and the static UI |
+| `app/service.py`      | Loads recipes, random selection, the prompt, and the OpenAI call         |
+| `app/schemas.py`      | Request/response models                                                  |
+| `app/settings.py`     | Reads configuration from environment variables / `.env`                 |
+| `app/deps.py`         | FastAPI dependency wiring (one shared service per process)               |
+| `data/data.csv`       | Original Recipes: action, dish name, date, issue, newspaper, Nguyên văn  |
+| `frontend/index.html` | Emotion + Weight form and the result card                                |
+| `frontend/app.js`     | Calls `POST /ask` and renders the result                                 |
+| `frontend/styles.css` | Styles, including the printable recipe card                              |
 
-- **Python 3.10+** (tested with CPython, conda or venv recommended)
-- **Node.js 18+** and npm for the frontend
-- An **OpenAI API key** (or compatible endpoint) with access to the configured chat model
-- Optional: GPU-enabled PyTorch environment if you plan to run large rerankers locally
+### How it works
 
----
+1. The frontend sends the Emotion as `question` and the Weight as `additional_context` (e.g. `"5 kg"`).
+2. The service loads the recipe CSV once and keeps it in memory.
+3. One recipe is picked at **random** rather than by similarity search. A vector database would add cost and latency without improving results here: the dataset is small, and matching an emotion against cooking text isn't meaningful. The randomness is part of the experience.
+4. The system prompt tells GPT to:
+   - copy the Nguyên văn word-for-word
+   - swap only the main ingredient for the Emotion
+   - use the random Poetic Imagery only in "Cách thưởng thức"
+   - avoid explanations and similes
+5. The response carries the generated text plus the source recipe, so the frontend can show the citation.
 
-## Quick Start
+The full API contract is in [API.md](API.md).
 
-### 1. Clone & prepare environments
+## Installation
 
-```powershell
-# In PowerShell
-cd AI-chatbot-2
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
+### Prerequisites
+
+- Python 3.10+
+- An **OpenAI API key**, used for chat completions. Create one at <https://platform.openai.com/api-keys>.
+
+### Run locally
+
+```bash
+git clone <repo-url> Project_VSC3
+cd Project_VSC3
+
+python3 -m venv .venv
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
-```
 
-```powershell
-cd frontend
-npm install
-cd ..
-```
-
-### 2. Configure environment variables
-
-```powershell
-Copy-Item config/.env.example config/.env
-notepad config/.env    # fill in OPENAI_API_KEY and other options
-```
-
-Key variables (see `config/.env.example` for full list):
-
-- `OPENAI_API_KEY` – required for chat completions
-- `EMBEDDING_MODEL` – Hugging Face embedding checkpoint (default `BAAI/bge-m3`)
-- `RERANK_MODEL` – Optional cross-encoder reranker (default `BAAI/bge-reranker-large`)
-- `CHAT_MODEL` – OpenAI chat model identifier (default `gpt-4o-mini`)
-- `PERSIST_DIR` – Vector-store folder (defaults to `chroma_db`)
-- Retrieval knobs: `RETRIEVER_K`, `POOL_SIZE`, `RERANK_TOP_K`, `CHUNK_SIZE`, `CHUNK_OVERLAP`
-
-### 3. Run the FastAPI backend
-
-```powershell
+cp .env.example .env             # then edit .env and set OPENAI_API_KEY
 uvicorn app.main:app --reload --port 8000
 ```
 
-The service exposes:
+Open <http://localhost:8000>. FastAPI serves the UI from `frontend/`; after editing a frontend file, just refresh the page.
 
-- `GET /health` – Basic health probe
-- `POST /ask` – Accepts an `AskRequest` (question, top_k, pool_size, rerank toggle) and returns an `AskResponse` with answer text plus ordered source chunks.
+### Environment variables
 
-### 5. Start the React frontend
+Backend (`.env`, see [.env.example](.env.example)):
 
-```powershell
-cd frontend
-npm run dev
+| Variable          | Required | Default        | Description                                         |
+| ----------------- | -------- | -------------- | --------------------------------------------------- |
+| `OPENAI_API_KEY`  | Yes      | –              | OpenAI API key for chat completions                 |
+| `CHAT_MODEL`      | No       | `gpt-4o-mini`  | OpenAI chat model                                   |
+| `DATA_DIR`        | No       | `data`         | Folder containing `data.csv`                        |
+| `ALLOWED_ORIGINS` | No       | `["*"]`        | JSON list of origins allowed by CORS                |
+
+### Docker
+
+```bash
+docker build -t poetry-chef .
+docker run -p 7860:7860 -e OPENAI_API_KEY=sk-... poetry-chef
 ```
 
-Open the printed URL (typically <http://localhost:5173>). Ensure the backend is reachable at <http://localhost:8000>; set `VITE_API_BASE` in `frontend/.env` if you deploy the API elsewhere.
+## Example Usage
 
----
+In the UI, type an Emotion, set the Weight slider, and submit. Or call the API directly:
 
-## User Experience
+```bash
+curl -X POST http://localhost:8000/ask \
+  -H "Content-Type: application/json" \
+  -d '{"question": "nỗi nhớ", "additional_context": "3 kg"}'
+```
 
-- Prompt the model via the textarea and submit to trigger `/ask`.
-- The interface auto-scrolls to the freshly generated answer and briefly highlights the response card.
-- Citations list every retrieved chunk; use **Xem trích đoạn** to expand the passage or **Xem nhanh** to sync the built-in PDF preview.
-- The preview pane loads the best-matching document page, with a convenient “Mở toàn văn” button to open the full PDF in a new tab.
+Illustrative output (abridged; the actual text varies on every run), based on *Chả cá*, Phụ Nữ Tân Văn, 13/6/1929:
 
----
+```text
+Tên món: Chả nỗi nhớ
+Nguyên liệu: Nỗi nhớ (3 kg), nước mắm, tiêu, lá chuối, mở
+Cách làm: Nỗi nhớ rữa sạch rồi lóc ra làm hai. Lấy mũi giao nhỏ mà nạo lấy hết
+  thịt nạc, còn xương với gia bỏ đi. Bỏ vô cối mà đâm cho nhuyễn rồi, nêm vô chút
+  nước mắm và cho vô chút tiêu cho thơm. ...
+Cách thưởng thức: Dọn ra khi hơi đất ẩm còn vương trên mái hiên, ăn chậm từng miếng.
+Dựa trên: “Chả cá”. Phụ Nữ Tân Văn, số 7, ngày 13 tháng 6, 1929.
+```
 
-## Development Workflow
-
-### Testing & Troubleshooting
-
-- **Backend imports failing**: run commands from the project root and export `PYTHONPATH` as shown above.
-- **Missing models**: the first ingestion may download multi-hundred MB checkpoints; keep the process running until it completes.
-- **Frontend network errors**: verify the backend base URL, or adjust `frontend/vite.config.ts` proxy if you introduce HTTPS or a different port.
-- **Refresh vector store**: `Remove-Item chroma_db -Recurse -Force` then re-run `scripts.ingest`.
-
-### Formatting & Linting
-
-- Backend adheres to standard `black`/`ruff` style (optional but recommended).
-- Frontend uses TypeScript + eslint presets from Vite (configurable via `frontend/eslint.config.js`).
-
-### Useful npm scripts (`frontend/package.json`)
-
-- `npm run dev` – Vite dev server with hot reload
-- `npm run build` – Production bundle (outputs to `frontend/dist/`)
-- `npm run preview` – Serve the production build locally
-
----
-
-## Deployment Notes
-
-- Backend can be containerized with Uvicorn + Gunicorn (check `uvicorn-gunicorn` images) and served behind a reverse proxy.
-- Persist `chroma_db/` on durable storage (e.g., Azure Files, AWS EFS, or local volume) so embeddings survive restarts.
-- Inject `OPENAI_API_KEY` and other secrets via your orchestration platform (GitHub Actions, Azure App Service, etc.).
-- Build the frontend with `npm run build` and host the static assets on a CDN or alongside the FastAPI app using `StaticFiles` if desired.
-
----
-
-## Roadmap Ideas
-
-1. Add streaming responses for incremental answer rendering.
-2. Introduce citation-based highlighting inside the PDF viewer.
-3. Expand ingestion to handle Markdown/HTML scraping pipelines.
-4. Implement authentication and usage analytics for multi-user deployments.
-
+More inputs to try: *cô đơn* (10 kg), *trống rỗng* (1 kg), *thèm* (7 kg).

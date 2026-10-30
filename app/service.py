@@ -1,3 +1,18 @@
+"""
+service.py
+
+Poetry Chef core logic.
+
+For every request the service:
+1. Loads the Original Recipes from `data/data.csv` (cached after first read).
+2. Picks one Original Recipe and one Poetic Imagery at random.
+3. Asks an OpenAI chat model to re-write the recipe's Nguyên văn with the
+   main ingredient replaced by the user's Emotion.
+
+No vector database is involved: selection is deliberately random rather than
+semantic, so the same Emotion can yield a different recipe each time.
+"""
+
 from __future__ import annotations
 
 import csv
@@ -7,8 +22,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_openai import ChatOpenAI
+from openai import OpenAI
 
 from .schemas import SourceChunk
 from .settings import Settings
@@ -16,7 +30,7 @@ from .settings import Settings
 LOGGER = logging.getLogger(__name__)
 
 class ContentRow:
-    """Represents a single row from the data.csv."""
+    """One Original Recipe, parsed from a row of data.csv."""
     def __init__(self, row: Dict[str, str], source_path: Path):
         self.action = row.get("Động từ (Action)", "").strip()
         self.original_recipe = row.get("Công thức gốc (Original recipes)", "").strip()
@@ -38,6 +52,7 @@ class ContentRow:
         )
 
     def to_text(self) -> str:
+        """Render the recipe as prompt context for the LLM."""
         return (
             f"Hành động: {self.action}\n"
             f"Công thức gốc: {self.original_recipe}\n"
@@ -48,6 +63,7 @@ class ContentRow:
         )
 
     def to_source_chunk(self) -> SourceChunk:
+        """Convert to the API's source model, with dates in Vietnamese format."""
         text = self.full_text or self.to_text()
 
         # Format date to Vietnamese if present
@@ -68,16 +84,14 @@ class ContentRow:
 
         return SourceChunk(
             label=label,
-            page_number=None,
             chapter=self.issue,
             book_title=self.newspaper,
             file_name=self.source_path.name,
             source_path=str(self.source_path),
             text=text,
-            viewer_url=None,
         )
 
-# List of poetic imagery to randomly select from
+# Poetic Imagery: one is chosen at random and woven into "Cách thưởng thức"
 POETIC_IMAGERY = [
     "gió biển",
     "sương sớm",
@@ -96,18 +110,10 @@ class PoetryChefService:
     """
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
-        self.settings.ensure_env()
 
-        self.llm = ChatOpenAI(
-            model=settings.chat_model,
-            temperature=0.8
-        )
+        self.client = OpenAI(api_key=settings.openai_api_key)
 
-        self.prompt = ChatPromptTemplate.from_messages(
-            [
-                (
-                    "system",
-                    """
+        self.system_prompt = """
 Bạn là một "Đầu bếp Thơ ca" (Poetry Chef). Mục tiêu duy nhất của bạn là chuyển hóa gánh nặng của người dùng bằng cách đặt chúng vào một công thức nấu ăn cổ xưa của Việt Nam.
 
 Hướng dẫn quan trọng nhất:
@@ -123,27 +129,22 @@ Hướng dẫn quan trọng nhất:
     -   KHÔNG dùng phép so sánh (CẤM dùng: "như là", "giống như", "tựa như").
     -   Chỉ tập trung vào mô tả hành động vật lý tác động lên [Cảm xúc] y hệt như tác động lên thực phẩm trong bản gốc.
 
-Định dạng đầu ra:
--   **Tên món**: [Giữ nguyên tên gốc, nhưng thay nguyên liệu tương ứng bằng Cảm xúc]
--   **Nguyên liệu**: [Cảm xúc] (có thể thêm định lượng trừu tượng hoặc giữ nguyên khối lượng nếu thấy thú vị), [Các nguyên liệu phụ liệt kê y hệt bản gốc]
--   **Cách làm**: [Chép lại toàn bộ "Nguyên văn", thay thế nguyên liệu chính bằng Cảm xúc. Chú ý sửa đổi từ ngữ kết nối/loại từ cho mượt mà].
--   **Cách thưởng thức**: [Viết 1 câu ngắn gọn, thi vị về cách dùng món này, và PHẢI lồng ghép hình ảnh "{random_imagery}" vào đây].
--   **Dựa trên**: “[Tên công thức gốc]”. [Tên báo], số [Số báo], ngày [Ngày] (Dịch sang tiếng Việt, ví dụ: May 10 -> 10 tháng 5).
-""".strip(),
-                ),
-                (
-                    "user",
-                    "Context:\n{context}\n\nInput Emotion: {question}\nWeight: {additional_context}",
-                ),
-            ]
-        )
+Định dạng đầu ra (mỗi phần trong dấu < > là HƯỚNG DẪN, phải được thay bằng nội dung thật; TUYỆT ĐỐI KHÔNG chép lại dấu < >, dấu [ ] hay câu hướng dẫn vào câu trả lời):
+-   **Tên món**: <tên gốc, với nguyên liệu chính được thay bằng Cảm xúc>
+-   **Nguyên liệu**: <Cảm xúc kèm Weight của người dùng>, <liệt kê từng nguyên liệu phụ cụ thể được nhắc đến trong "Nguyên văn", kèm định lượng nếu có, ví dụ: "thịt heo nạc 100 gr, nấm thông 6, 7 cái, hành tây 1 củ">
+-   **Cách làm**: <chép lại toàn bộ "Nguyên văn", thay nguyên liệu chính bằng Cảm xúc, sửa từ nối/loại từ cho mượt mà>
+-   **Cách thưởng thức**: <1 câu ngắn gọn, thi vị về cách dùng món này, PHẢI lồng ghép hình ảnh "{random_imagery}">
+-   **Dựa trên**: “<tên công thức gốc>”. <tên báo>, số <số báo>, ngày <ngày đầy đủ cả năm, dịch sang tiếng Việt, ví dụ: May 30, 1929 -> 30 tháng 5, 1929>
+""".strip()
+        self.user_prompt = "Context:\n{context}\n\nInput Emotion: {question}\nWeight: {additional_context}"
         self._cache_data: List[ContentRow] = []
 
     def _load_data(self) -> List[ContentRow]:
+        """Read and cache all Original Recipes from data.csv."""
         if self._cache_data:
             return self._cache_data
 
-        csv_path = self.settings.resolved_data_dir / "data.csv"
+        csv_path = self.settings.data_dir / "data.csv"
         if not csv_path.exists():
             LOGGER.error(f"Data file not found at {csv_path}")
             return []
@@ -167,18 +168,18 @@ Hướng dẫn quan trọng nhất:
         *,
         question: str,
         additional_context: Optional[str] = None,
-        top_k: Optional[int] = None,
-        pool_size: Optional[int] = None,
         temperature: Optional[float] = None,
-        rerank: bool = True,
     ) -> Dict[str, object]:
         """
-        Picks a random context and generates a response.
+        Pick a random Original Recipe and re-cook it with the user's Emotion.
+
         Args:
-            question: The user's emotion/gánh nặng.
-            additional_context: The weight of the emotion.
-            temperature: LLM temperature.
-            top_k, pool_size, rerank: Ignored in this simplified version.
+            question: The user's Emotion (gánh nặng).
+            additional_context: The Weight of the Emotion, e.g. "5 kg".
+            temperature: Optional LLM temperature override.
+
+        Returns:
+            A dict with `answer`, `citations` and `sources`, matching AskResponse.
         """
         data = self._load_data()
         if not data:
@@ -195,29 +196,27 @@ Hướng dẫn quan trọng nhất:
         # Pick a random poetic imagery
         random_imagery = random.choice(POETIC_IMAGERY)
 
-        # Update temperature if requested
-        previous_temperature = self.llm.temperature
-        if temperature is not None:
-            self.llm.temperature = temperature
-
-        try:
-            response = self.llm.invoke(
-                self.prompt.format_messages(
-                    context=context_text,
-                    question=question,
-                    additional_context=additional_context or "không xác định",
-                    random_imagery=random_imagery,
-                )
-            )
-        finally:
-            self.llm.temperature = previous_temperature
+        response = self.client.chat.completions.create(
+            model=self.settings.chat_model,
+            temperature=0.8 if temperature is None else temperature,
+            messages=[
+                {
+                    "role": "system",
+                    "content": self.system_prompt.format(random_imagery=random_imagery),
+                },
+                {
+                    "role": "user",
+                    "content": self.user_prompt.format(
+                        context=context_text,
+                        question=question,
+                        additional_context=additional_context or "không xác định",
+                    ),
+                },
+            ],
+        )
 
         return {
-            "answer": response.content.strip(),
+            "answer": (response.choices[0].message.content or "").strip(),
             "citations": [selected_row.citation_label],
             "sources": [selected_row.to_source_chunk()],
         }
-
-    def ensure_vectorstore(self, force_rebuild: bool = False) -> None:
-        """Compatibility method for startup logic."""
-        self._load_data()

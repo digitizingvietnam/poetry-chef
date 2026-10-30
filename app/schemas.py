@@ -1,3 +1,12 @@
+"""
+schemas.py
+
+Request and response models for the `/ask` endpoint.
+
+Field names are kept stable for the frontend; see GLOSSARY.md for what they
+mean in domain terms (`question` is the Emotion, `additional_context` the Weight).
+"""
+
 from __future__ import annotations
 
 from typing import List, Optional
@@ -6,32 +15,31 @@ from pydantic import BaseModel, Field
 
 
 class AskRequest(BaseModel):
-    question: str = Field(..., min_length=1)
-    additional_context: Optional[str] = None
-    top_k: Optional[int] = Field(None, ge=1)
-    pool_size: Optional[int] = Field(None, ge=1)
-    temperature: Optional[float] = Field(None, ge=0.0, le=2.0)
-    rerank: bool = True
+    """Body of `POST /ask`."""
+
+    question: str = Field(..., min_length=1, description="The user's Emotion.")
+    additional_context: Optional[str] = Field(
+        None, description="The Weight of the Emotion, e.g. '5 kg'."
+    )
+    temperature: Optional[float] = Field(
+        None, ge=0.0, le=2.0, description="Overrides the LLM temperature."
+    )
 
 
 class SourceChunk(BaseModel):
+    """The Original Recipe a Re-cooked Recipe was based on."""
+
     label: str
-    page_number: Optional[int] = None
     chapter: Optional[str] = None
     book_title: Optional[str] = None
     file_name: Optional[str] = None
     source_path: Optional[str] = None
     text: str
-    viewer_url: Optional[str] = None
 
 
 class AskResponse(BaseModel):
+    """Body returned by `POST /ask`."""
+
     answer: str
     citations: List[str]
     sources: List[SourceChunk]
-
-    @classmethod
-    def from_chain_result(
-        cls, *, answer: str, citations: list[str], sources: list[SourceChunk]
-    ) -> "AskResponse":
-        return cls(answer=answer, citations=citations, sources=sources)

@@ -1,1 +1,1 @@
-"""Backend application package for the Vietnamese RAG Assistant."""
+"""Poetry Chef backend: re-cooks emotions into historical Vietnamese recipes."""

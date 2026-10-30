@@ -15,30 +15,18 @@ build/
 dist/
 
 
-Word/
-
 # Jupyter and notebook temp files
 .ipynb_checkpoints/
 *.nbconvert.ipynb
 
 # Local configuration
-config/.env
-config/*.local
-
-# Chroma vector store artifacts
-chroma_db/
+.env
 
 # Logs and temp files
 *.log
 logs/
 .DS_Store
 Thumbs.db
-
-# Frontend dependencies and build output
-frontend/node_modules/
-frontend/dist/
-frontend/.vite/
-frontend/.env.local
 
 # Editor settings
 .vscode/
